@@ -34,11 +34,11 @@ anchor deploy --provider.cluster devnet # if you want to deploy on devnet
 ### Initialize config
 
 ```bash
-# BF4PMAWVAkbdnwawE5fowaVUciDMHuLXyLz7d74CiDg1 is the address of program already deployed on devnet
+# 8kYykaz22b9r48BWzrLhNcCvCwrtKF5Ggr1Mv6ik4w8C is the address of program already deployed on devnet
 # set some other `program-id` if you've deployed another program
-cargo run -p admin-cli -- --cluster devnet --program-id BF4PMAWVAkbdnwawE5fowaVUciDMHuLXyLz7d74CiDg1 init-config
+cargo run -p admin-cli -- --cluster devnet --program-id 8kYykaz22b9r48BWzrLhNcCvCwrtKF5Ggr1Mv6ik4w8C init-config
 # this command allows you to show the default config
-cargo run -p admin-cli -- --cluster devnet --program-id BF4PMAWVAkbdnwawE5fowaVUciDMHuLXyLz7d74CiDg1 show-config
+cargo run -p admin-cli -- --cluster devnet --program-id 8kYykaz22b9r48BWzrLhNcCvCwrtKF5Ggr1Mv6ik4w8C show-config
 ```
 
 > Now you have working development environment and deployed and initialized program on devnet.
@@ -46,7 +46,7 @@ cargo run -p admin-cli -- --cluster devnet --program-id BF4PMAWVAkbdnwawE5fowaVU
 ### Add admin
 
 ```bash
-cargo run -p admin-cli -- --cluster devnet --program-id BF4PMAWVAkbdnwawE5fowaVUciDMHuLXyLz7d74CiDg1 add-admin --admin <some public key>
+cargo run -p admin-cli -- --cluster devnet --program-id 8kYykaz22b9r48BWzrLhNcCvCwrtKF5Ggr1Mv6ik4w8C add-admin --admin <some public key>
 ```
 
 ### Init test merkle tree
@@ -76,7 +76,7 @@ to the program on claim stage.
 ### Create claiming (distributor)
 
 ```bash
-cargo run -p admin-cli -- --cluster devnet --program-id BF4PMAWVAkbdnwawE5fowaVUciDMHuLXyLz7d74CiDg1 \
+cargo run -p admin-cli -- --cluster devnet --program-id 8kYykaz22b9r48BWzrLhNcCvCwrtKF5Ggr1Mv6ik4w8C \
 create-claiming \
 # paste value from above
 --merkle '{"type":"Buffer","data":[173,37,178,225,82,176,124,231,51,17,228,211,31,161,78,98,113,39,48,137,59,125,31,241,170,176,167,53,40,207,121,206]}' \
@@ -88,5 +88,5 @@ This command should print distributor address and tx signature as a result.
 ### Show distributor internal state
 
 ```bash
-cargo run -p admin-cli -- --cluster devnet --program-id BF4PMAWVAkbdnwawE5fowaVUciDMHuLXyLz7d74CiDg1 show-claiming --claiming 9cmx7sd8CTQBeyfHao9RtiGcA6obSwgiAzRsqxWcG2xi
+cargo run -p admin-cli -- --cluster devnet --program-id 8kYykaz22b9r48BWzrLhNcCvCwrtKF5Ggr1Mv6ik4w8C show-claiming --claiming 9cmx7sd8CTQBeyfHao9RtiGcA6obSwgiAzRsqxWcG2xi
 ```

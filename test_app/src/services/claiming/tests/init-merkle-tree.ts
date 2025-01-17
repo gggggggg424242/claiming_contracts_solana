@@ -2,25 +2,63 @@ import * as anchor from '@project-serum/anchor';
 import * as serumCmn from "@project-serum/common";
 import { TokenInstructions } from '@project-serum/serum';
 import * as spl from "@solana/spl-token";
+import { Keypair, Signer, SystemProgram, Transaction } from "@solana/web3.js";
+import { Token, MintLayout, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 import * as merkle from './merkle-tree';
 
-const TOKEN_PROGRAM_ID = TokenInstructions.TOKEN_PROGRAM_ID;
-
 export const provider = anchor.AnchorProvider.env();
 
-export async function createMint(provider: anchor.AnchorProvider, payer: anchor.web3.Keypair, authority?: anchor.web3.PublicKey) {
-    if (authority === undefined) {
-        authority = provider.wallet.publicKey;
-    }
-    const mint = await spl.createMint(
-        provider.connection,
-        payer,
-        authority,
-        null,
-        6,
-    );
-    return mint;
+export async function createMint(
+  provider: anchor.AnchorProvider,
+  payer: Signer,
+  authority?: anchor.web3.PublicKey
+): Promise<Token> {
+  if (authority === undefined) {
+    authority = provider.wallet.publicKey;
+  }
+
+  // Generate new mint keypair
+  const mintKeypair = Keypair.generate();
+
+  // Create token instance
+  const token = new Token(
+    provider.connection,
+    mintKeypair.publicKey,
+    TOKEN_PROGRAM_ID,
+    payer
+  );
+
+  // Create account
+  const createAccountInstruction = SystemProgram.createAccount({
+    fromPubkey: payer.publicKey,
+    newAccountPubkey: mintKeypair.publicKey,
+    space: MintLayout.span,
+    lamports: await provider.connection.getMinimumBalanceForRentExemption(MintLayout.span),
+    programId: TOKEN_PROGRAM_ID,
+  });
+
+  // Initialize mint
+  const tx = new Transaction();
+  tx.add(createAccountInstruction);
+  tx.add(
+    Token.createInitMintInstruction(
+      TOKEN_PROGRAM_ID,
+      mintKeypair.publicKey,
+      6, // decimals
+      authority,
+      null // freeze authority (none)
+    )
+  );
+
+  tx.recentBlockhash = (await provider.connection.getLatestBlockhash("finalized")).blockhash;
+  tx.feePayer = payer.publicKey;
+  tx.partialSign(mintKeypair);
+
+  // Send transaction
+  await provider.sendAndConfirm(tx, [mintKeypair]);
+
+  return token;
 }
 
 export async function generateMerkle(mint: any) {

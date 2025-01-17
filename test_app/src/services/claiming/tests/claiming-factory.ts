@@ -1,13 +1,23 @@
 import * as anchor from '@project-serum/anchor';
 import * as serumCmn from "@project-serum/common";
-import * as spl from '@solana/spl-token';
+import { 
+  Token, 
+  TOKEN_PROGRAM_ID, 
+  MintLayout,
+  ASSOCIATED_TOKEN_PROGRAM_ID 
+} from '@solana/spl-token';
+import * as splToken from '@solana/spl-token';
 import {
   LAMPORTS_PER_SOL,
   Signer,
   Connection,
   clusterApiUrl,
   ConfirmOptions,
-  Keypair, PublicKey, SystemProgram, Transaction, sendAndConfirmTransaction,
+  Keypair, 
+  PublicKey, 
+  SystemProgram, 
+  Transaction, 
+  sendAndConfirmTransaction,
 } from '@solana/web3.js';
 import nacl from 'tweetnacl';
 import * as bip39  from 'bip39';
@@ -23,19 +33,6 @@ const {
   REACT_APP_USER_MNEMONIC,
   REACT_APP_TOKEN_ADDRESS = '',
 } = process.env;
-
-const {
-  MintLayout,
-  mintTo,
-  getAssociatedTokenAddress,
-  createInitializeMintInstruction,
-  createAssociatedTokenAccountInstruction,
-  createMintToInstruction,
-  createSetAuthorityInstruction,
-  TOKEN_PROGRAM_ID,
-} = spl;
-
-console.log({ spl })
 
 type ClaimingUser = {
   wallet: any,
@@ -178,12 +175,13 @@ export class ClaimingClientForTest {
         payerPublicKey: payer.publicKey.toString(),
         authority,
       });
-      const mint = await spl.createMint(
+      const mint = await Token.createMint(
         provider.connection,
         payer,
         authority,
         null,
         6,
+        TOKEN_PROGRAM_ID
       );
       console.log('createMint:', { mint });
       return mint;
@@ -202,70 +200,62 @@ export class ClaimingClientForTest {
     try {
       if (!wallet.publicKey) throw new Error('Wallet is not initialized');
 
-      const associatedTokenAddress = await getAssociatedTokenAddress(
+      const token = new Token(
+        this.connection,
         mint.publicKey,
-        wallet.publicKey,
-        false,
+        TOKEN_PROGRAM_ID,
+        wallet
       );
 
+      // Create account
       const createAccountInstruction = SystemProgram.createAccount({
         fromPubkey: wallet.publicKey,
         newAccountPubkey: mint.publicKey,
-        space: 82,
-        lamports: await this.connection.getMinimumBalanceForRentExemption(82),
+        space: MintLayout.span,
+        lamports: await this.connection.getMinimumBalanceForRentExemption(MintLayout.span),
         programId: TOKEN_PROGRAM_ID,
       });
 
-      const initializeMintInstruction = createInitializeMintInstruction(
-        mint.publicKey,
-        decimals,
-        wallet.publicKey,
-        wallet.publicKey,
-      );
-
-      const associatedTokenAccountInstruction = createAssociatedTokenAccountInstruction(
-        wallet.publicKey,
-        associatedTokenAddress,
-        wallet.publicKey,
-        mint.publicKey,
-      );
-
-      const mintToInstruction = createMintToInstruction(
-        mint.publicKey,
-        associatedTokenAddress,
-        wallet.publicKey,
-        supply * (10 ** decimals),
-        [],
-        TOKEN_PROGRAM_ID
-      );
-
-      const setAuthorityInstruction = createSetAuthorityInstruction(
-        mint.publicKey,
-        wallet.publicKey,
-        0,
-        wallet.publicKey,
-        [],
-        TOKEN_PROGRAM_ID,
-      );
-
-      const instructions = [
-        createAccountInstruction,
-        initializeMintInstruction,
-        associatedTokenAccountInstruction,
-        mintToInstruction,
-        setAuthorityInstruction,
-      ];
-
+      // Initialize mint
       const tx = new Transaction();
-      tx.add(...instructions);
-      tx.recentBlockhash =  (await this.connection.getLatestBlockhash("finalized")).blockhash;
+      tx.add(createAccountInstruction);
+      tx.add(
+        Token.createInitMintInstruction(
+          TOKEN_PROGRAM_ID,
+          mint.publicKey,
+          decimals,
+          wallet.publicKey,
+          wallet.publicKey
+        )
+      );
+
+      tx.recentBlockhash = (await this.connection.getLatestBlockhash("finalized")).blockhash;
       tx.feePayer = wallet.publicKey;
       tx.partialSign(mint);
-      console.log('createMint:', { mint, wallet, tx });
-      // const transactionSignature = await wallet.adapter.sendTransaction(tx, connection, { signers: [mint] });
+
       const result = await wallet.signAndSendTransaction(tx);
-      console.log('createMint:', { result });
-      // await this.connection.confirmTransaction(transactionSignature);
+      
+      // Create associated token account and mint tokens
+      const associatedTokenAccount = await token.getOrCreateAssociatedAccountInfo(
+        wallet.publicKey
+      );
+
+      await token.mintTo(
+        associatedTokenAccount.address,
+        wallet.publicKey,
+        [],
+        supply * (10 ** decimals)
+      );
+
+      // Disable future minting
+      await token.setAuthority(
+        mint.publicKey,
+        null,
+        'MintTokens',
+        wallet.publicKey,
+        []
+      );
+
       return result;
     } catch (e) {
       console.error('createMint:', e);
@@ -319,13 +309,17 @@ export class ClaimingClientForTest {
       const distributorAccount = await this.program.account.merkleDistributor.fetch(distributor);
 
       const vault = distributorAccount.vault;
-      await mintTo(
+      const mintToken = new Token(
         this.connection,
-        this.solana,
         this.mint,
+        TOKEN_PROGRAM_ID,
+        this.solana
+      );
+      await mintToken.mintTo(
         vault,
         this.solana.publicKey,
-        1000,
+        [],
+        1000
       );
 
       const vaultAuthority = await anchor.web3.PublicKey.createProgramAddress(
